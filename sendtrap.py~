@@ -1,0 +1,108 @@
+'''
+Created on Oct 9, 2014
+
+@author: Wang
+'''
+import sys
+import os.path
+from _ctypes import Array
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'lib'))
+#print os.path.join(os.path.dirname(__file__), 'lib')
+#print sys.path
+
+#import the 3rd party module of pysnmp, note that pysnmp depends on pyasn1
+from pysnmp.carrier.asynsock.dgram import udp
+from pysnmp.entity import engine, config
+from pysnmp.entity.rfc3413 import ntforg, context
+from pysnmp.proto.api import v2c
+import pyasn1, pysnmp
+
+import datetime as pydate
+
+versionInfo = "Python & Module Info:"
+versionInfo += "\r\nPython: " + sys.version
+versionInfo += "\r\nPyasn1: " + pyasn1.__version__
+versionInfo += "\r\nPysnmp: " + pysnmp.__version__
+print versionInfo
+
+snmpEngine = snmpContext = ntfOrg = None
+def initTarget(host='127.0.0.1', community='LIC_OSS', port=162):
+    global snmpEngine, snmpContext, ntfOrg
+    # Create SNMP engine instance
+    snmpEngine = engine.SnmpEngine()
+    
+    # SecurityName <-> CommunityName mapping
+    config.addV1System(snmpEngine, 'my-area', 'LIC_OSS')
+    
+    # Specify security settings per SecurityName (SNMPv2c -> 1)
+    config.addTargetParams(snmpEngine, 'my-creds', 'my-area', 'noAuthNoPriv', 1)
+    
+    # Setup transport endpoint and bind it with security settings yielding
+    # a target name
+    config.addSocketTransport(
+        snmpEngine,
+        udp.domainName,
+        udp.UdpSocketTransport().openClientMode()
+    )
+    config.addTargetAddr(
+        snmpEngine, 'my-nms',
+        udp.domainName, ('127.0.0.1', 162),
+        'my-creds',
+        tagList='all-my-managers'
+    )
+    
+    # Specify what kind of notification should be sent (TRAP or INFORM),
+    # to what targets (chosen by tag) and what filter should apply to
+    # the set of targets (selected by tag)
+    config.addNotificationTarget(
+        snmpEngine, 'my-notification', 'my-filter', 'all-my-managers', 'trap'
+    )
+    
+    # Allow NOTIFY access to Agent's MIB by this SNMP model (2), securityLevel
+    # and SecurityName
+    config.addContext(snmpEngine, '')
+    config.addVacmUser(snmpEngine, 2, 'my-area', 'noAuthNoPriv', (), (), (1,3,6))
+    
+    # *** SNMP engine configuration is complete by this line ***
+    
+    # Create default SNMP context where contextEngineId == SnmpEngineId
+    snmpContext = context.SnmpContext(snmpEngine)
+    
+    # Create Notification Originator App instance. 
+    ntfOrg = ntforg.NotificationOriginator(snmpContext)
+
+def sendTrap(oid, traps = None, uptime = 0):
+    arrTrap = []
+    arrTrap.append((('1.3.6.1.2.1.1.3.0'), v2c.Gauge32(uptime)))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.1.0'), v2c.Gauge32('11627068')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.2.0'), v2c.OctetString('li sgsn [10.185.127.91]:8000[10.170.49.18]:17530')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.4.0'), v2c.OctetString(hexValue='07de07100a0c1e002b0800')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.5.0'), v2c.Gauge32('2')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.6.0'), v2c.Gauge32('6')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.7.0'), v2c.Gauge32('5')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.13.0'), v2c.OctetString('SGSN: X3 TCP connection failed. LIC address: [10.185.127.91]:8000. NE address: [10.170.49.18]:17530')))
+    arrTrap.append((('1.3.6.1.4.1.193.82.1.8.1.8.0'), v2c.OctetString('liX3LinkFailureMajor')))
+    #print arrTrap
+    
+    # Build and submit notification message to dispatcher
+    global ntforg, snmpEngine
+    ntfOrg.sendNotification(
+        snmpEngine,
+        # Notification targets
+        'my-notification',
+        # Trap OID (SNMPv2-MIB::coldStart)
+        (oid),
+        # ( (oid, value), ... )
+        arrTrap
+    )
+    print('Notification is scheduled to be sent\r\nHello')
+    # Run I/O dispatcher which would send pending message and process response
+    #global snmpEngine
+    snmpEngine.transportDispatcher.runDispatcher()
+    
+if __name__ == '__main__':
+    initTarget()
+    sendTrap(oid='1.3.6.1.4.1.193.82.2.0.1')
+    print pydate.datetime.now()
+    #print "hello world!!"
