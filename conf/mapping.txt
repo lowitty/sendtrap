@@ -37,3 +37,6 @@
 37	=	OCG_monitorTargetExceedThresholdClear.txt
 38	=	OCG_cpuOverload.txt
 39	=	OCG_cpuOverloadClear.txt
+40  =   PGW_X2ConnectionRecovery.txt
+41  =   SGW_X2ConnectionRecovery.txt
+42  =   EPG_X2ConnectionRecovery.txt

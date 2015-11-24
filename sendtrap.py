@@ -325,6 +325,7 @@ def parseOptions():
     optionalGroup.add_option("-I", "--intervalshift", action="store", type="int", default = "1", help = "The time interval shift of alarm event, range[1, no-limited] with unit of second(s).[default: %default]", dest="intervalshift")
     optionalGroup.add_option("-d", "--duration", action="store", type="int", default = "1", help = "Duration of the alarm storm in unit of minute, range[1, 59].[default: %default]", dest="duration")
     optionalGroup.add_option("-r", "--round", action="store", type="int", default = "1", help = "Specify the frequency of the alarm storm, there will be a alarm storm every two hours if you specify '-R 2'.[default: %default]", dest="round")
+    optionalGroup.add_option("-c", "--counter", action="store", type="string", default = "", help = "Specify the node type which don't have counter ID. '-C EPG'.[default: %default]", dest="counter")
     parser.add_option_group(optionalGroup)
     
     (options, args) = parser.parse_args()
@@ -596,14 +597,16 @@ def sendTrapNormalMode(options, arrTraps):
     bCusTime = True
     if(options.timeofevent == ""):
         bCusTime = False
-    
+    #print arrTraps
+    #print options.list
     for oid, trap in arrTraps:
         if(not bCusTime):
             i, s = getHexNow()
             trap[1][1] = v2c.OctetString(hexValue = s)
         
         #trap[2][1] = v2c.Gauge32(alarm_counter)
-        trap[2][1] = getAlarmId(trap[2][0], alarm_counter, True)
+        if(options.counter.upper() == ''):
+            trap[2][1] = getAlarmId(trap[2][0], alarm_counter, True)
         sendTrap(oid[0], trap)
         alarm_counter += 1
         if(alarm_counter > 4294967295):
@@ -812,12 +815,13 @@ if __name__ == '__main__':
                         hexList.append(v2c.OctetString(hexValue=trapTime[1]))
                         trapInfo.append(hexList)
                         
-                        #Format the alarm ID info
-                        alarmIdList = []
-                        alarmIdList.append(alarmId[0])
-                        #alarmIdList.append(v2c.Gauge32(alarmId[1]))
-                        alarmIdList.append(getAlarmId(alarmId[0], alarmId[1]))
-                        trapInfo.append(alarmIdList)
+                        if(iS.counter.upper() == ''):
+                            #Format the alarm ID info
+                            alarmIdList = []
+                            alarmIdList.append(alarmId[0])
+                            #alarmIdList.append(v2c.Gauge32(alarmId[1]))
+                            alarmIdList.append(getAlarmId(alarmId[0], alarmId[1]))
+                            trapInfo.append(alarmIdList)
                         
                         #trapInfo.append(((trapTime[0]), v2c.OctetString(hexValue=trapTime[1])))
                         for info in arr:
