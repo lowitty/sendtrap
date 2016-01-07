@@ -432,6 +432,7 @@ def initTrapInformation(strMap, option):
     timeDel = pydate.timedelta(seconds = 0)
     if (option.timeofevent != ""):
         if(option.timeofevent == "now"):
+            bCustom = True
             timeUsed = pydate.datetime.now()
             msg = "Will use current time as the alarm time."
             writeLog(msg)
